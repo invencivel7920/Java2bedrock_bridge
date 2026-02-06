@@ -1,0 +1,41 @@
+# Configuração padrão do Java2Bedrock Bridge
+
+[network]
+# Número de threads de rede (0 = automático baseado em CPU cores)
+threads = 0
+
+# Endereço do servidor Bedrock
+host = "localhost"
+
+# Porta do servidor Bedrock (padrão: 19132)
+port = 19132
+
+# Timeout de conexão em milissegundos
+timeout_ms = 5000
+
+[performance]
+# Ratio de cache em relação à memória máxima da JVM
+cache_ratio = 0.25
+
+# Tamanho máximo do cache de blocos
+block_cache_size = 8192
+
+# Tamanho máximo do cache de itens
+item_cache_size = 4096
+
+[features]
+# Ativar sistema de integração com mods
+mod_integration = true
+
+# Ativar sistema de resource packs customizados
+resource_packs = true
+
+# Ativar coleta de métricas
+metrics = true
+
+[debug]
+# Ativar modo debug (mais logs, detecção de vazamentos de memória)
+enabled = false
+
+# Nível de log (DEBUG, INFO, WARN, ERROR)
+log_level = "INFO"

@@ -1,0 +1,31 @@
+modLoader="javafxmod"
+loaderVersion="[47,)"
+license="Apache 2.0"
+issueTrackerURL="https://github.com/Java2bedrock/Java2bedrock_bridge/issues"
+
+[[mods]]
+modId="java2bedrock"
+displayName="Java2Bedrock Bridge"
+displayURL="https://github.com/Java2bedrock/Java2bedrock_bridge"
+logoFile=""
+credits="Traduzindo Mods Java para Bedrock"
+authors="Java2Bedrock Team"
+description="""
+Conecta a Java Edition com a Bedrock Edition, permitindo tradução inteligente de mods.
+Sistema de bridge que sincroniza conteúdo entre as duas plataformas.
+"""
+version="1.0.0-alpha"
+
+[[dependencies.java2bedrock]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.java2bedrock]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
