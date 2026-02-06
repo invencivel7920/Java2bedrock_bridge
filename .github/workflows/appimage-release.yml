@@ -1,0 +1,249 @@
+name: Build AppImage Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0-alpha)'
+        required: false
+
+env:
+  JAVA_VERSION: '17'
+  APP_NAME: 'Java2Bedrock Bridge'
+  APP_ID: 'com.javabedrock.bridge'
+
+jobs:
+  build-appimage:
+    name: Build AppImage for Linux
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    
+    - name: Install AppImage dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libfuse2 \
+          fuse \
+          desktop-file-utils \
+          appstream
+    
+    - name: Build project with Gradle
+      run: ./gradlew build -x test --stacktrace
+    
+    - name: Create AppImage structure
+      run: |
+        # Create AppImage directory structure
+        mkdir -p AppImage/usr/bin
+        mkdir -p AppImage/usr/share/applications
+        mkdir -p AppImage/usr/share/icons/hicolor/256x256/apps
+        mkdir -p AppImage/usr/share/pixmaps
+        
+        # Copy JAR
+        cp build/libs/java2bedrock-bridge-*.jar AppImage/usr/bin/java2bedrock-bridge.jar
+    
+    - name: Create AppRun script
+      run: |
+        cat > AppImage/AppRun << 'EOF'
+        #!/bin/bash
+        
+        # Get the directory where AppImage is located
+        APPIMAGE_DIR="$(cd "$(dirname "$0")" && pwd)"
+        
+        # Set JAVA_HOME if not already set
+        if [ -z "$JAVA_HOME" ]; then
+          JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+        fi
+        
+        # Run the application
+        exec "$JAVA_HOME/bin/java" \
+          -Xmx2g \
+          -Xms256m \
+          -Dlog4j.configuration="file://$APPIMAGE_DIR/usr/bin/log4j.properties" \
+          -jar "$APPIMAGE_DIR/usr/bin/java2bedrock-bridge.jar" "$@"
+        EOF
+        
+        chmod +x AppImage/AppRun
+    
+    - name: Create desktop entry
+      run: |
+        cat > AppImage/usr/share/applications/com.javabedrock.bridge.desktop << 'EOF'
+        [Desktop Entry]
+        Type=Application
+        Name=Java2Bedrock Bridge
+        Comment=Translate Java mods to Bedrock Edition
+        Icon=com.javabedrock.bridge
+        Exec=java2bedrock-bridge %F
+        Categories=Development;Utility;
+        Terminal=false
+        StartupNotify=true
+        Version=1.0
+        EOF
+    
+    - name: Create icon (placeholder)
+      run: |
+        # Create a simple 256x256 icon
+        convert -size 256x256 xc:#2E8B57 \
+          -pointsize 48 -fill white -gravity center -annotate +0+0 "J2B" \
+          AppImage/usr/share/icons/hicolor/256x256/apps/com.javabedrock.bridge.png || \
+        # Fallback if ImageMagick is not available
+        cp /usr/share/pixmaps/java.png AppImage/usr/share/icons/hicolor/256x256/apps/com.javabedrock.bridge.png 2>/dev/null || echo "Icon not found"
+    
+    - name: Download appimagetool
+      run: |
+        mkdir -p tools
+        cd tools
+        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
+    
+    - name: Build AppImage
+      run: |
+        export VERSION=$(cat gradle.properties | grep "^version" | cut -d'=' -f2 | tr -d ' ')
+        ./tools/appimagetool-x86_64.AppImage AppImage java2bedrock-bridge-${VERSION}-x86_64.AppImage
+    
+    - name: Create checksum
+      run: |
+        sha256sum java2bedrock-bridge-*.AppImage > java2bedrock-bridge.AppImage.sha256
+    
+    - name: Upload to GitHub Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          java2bedrock-bridge-*.AppImage
+          java2bedrock-bridge.AppImage.sha256
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: appimage-linux
+        path: |
+          java2bedrock-bridge-*.AppImage
+          java2bedrock-bridge.AppImage.sha256
+        retention-days: 30
+
+  build-installer-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    
+    - name: Build project with Gradle
+      run: ./gradlew build -x test --stacktrace
+    
+    - name: Create Windows distribution
+      run: |
+        mkdir -p dist\java2bedrock-bridge
+        copy build\libs\java2bedrock-bridge-*.jar dist\java2bedrock-bridge\java2bedrock-bridge.jar
+        copy LICENSE dist\java2bedrock-bridge\
+        copy README.md dist\java2bedrock-bridge\
+    
+    - name: Create run script
+      run: |
+        @echo off
+        setlocal enabledelayedexpansion
+        set JAR_PATH=%~dp0java2bedrock-bridge.jar
+        java -Xmx2g -Xms256m -jar "!JAR_PATH!" %%*
+        endlocal
+      shell: cmd
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-dist
+        path: dist/java2bedrock-bridge
+        retention-days: 30
+
+  build-macos:
+    name: Build macOS App Bundle
+    runs-on: macos-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    
+    - name: Build project with Gradle
+      run: ./gradlew build -x test --stacktrace
+    
+    - name: Create macOS App Bundle
+      run: |
+        mkdir -p dist/Java2BedrockBridge.app/Contents/{MacOS,Resources}
+        cp build/libs/java2bedrock-bridge-*.jar dist/Java2BedrockBridge.app/Contents/Resources/java2bedrock-bridge.jar
+        
+        # Create launcher script
+        cat > dist/Java2BedrockBridge.app/Contents/MacOS/launcher.sh << 'EOF'
+        #!/bin/bash
+        DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+        exec java -Xmx2g -Xms256m -jar "$DIR/../Resources/java2bedrock-bridge.jar" "$@"
+        EOF
+        
+        chmod +x dist/Java2BedrockBridge.app/Contents/MacOS/launcher.sh
+        
+        # Create Info.plist
+        cat > dist/Java2BedrockBridge.app/Contents/Info.plist << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>CFBundleName</key>
+          <string>Java2Bedrock Bridge</string>
+          <key>CFBundleIdentifier</key>
+          <string>com.javabedrock.bridge</string>
+          <key>CFBundleVersion</key>
+          <string>1.0.0</string>
+          <key>CFBundleExecutable</key>
+          <string>launcher.sh</string>
+          <key>NSHighResolutionCapable</key>
+          <true/>
+        </dict>
+        </plist>
+        EOF
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-app
+        path: dist/Java2BedrockBridge.app
+        retention-days: 30
