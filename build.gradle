@@ -1,7 +1,8 @@
 plugins {
     id 'java'
     id 'application'
-    id 'org.openjfx.javafxmod' version '0.1.0'
+    // Use o plugin oficial do JavaFX
+    id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
 group = 'com.javabedrock'
@@ -11,18 +12,21 @@ sourceCompatibility = targetCompatibility = JavaVersion.VERSION_17
 
 application {
     mainClass = 'com.javabedrock.bridge.JavaBedrocBridgeApp'
+    // Adicione esta linha se estiver usando JavaFX
+    applicationDefaultJvmArgs = ['--module-path', classpath.asPath, '--add-modules', 'javafx.controls,javafx.fxml,javafx.graphics']
 }
 
+// Configuração do JavaFX
 javafx {
     version = '21.0.1'
     modules = [ 'javafx.controls', 'javafx.fxml', 'javafx.graphics' ]
 }
 
 dependencies {
-    // JavaFX para GUI
-    implementation "org.openjfx:javafx-controls:21.0.1"
-    implementation "org.openjfx:javafx-fxml:21.0.1"
-    implementation "org.openjfx:javafx-graphics:21.0.1"
+    // JavaFX - O plugin já cuida disso, então pode remover estas dependências
+    // implementation "org.openjfx:javafx-controls:21.0.1"
+    // implementation "org.openjfx:javafx-fxml:21.0.1"
+    // implementation "org.openjfx:javafx-graphics:21.0.1"
     
     // Logging
     implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
